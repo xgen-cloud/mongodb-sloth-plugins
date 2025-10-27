@@ -17,7 +17,7 @@ const (
 
 var queryTpl = template.Must(template.New("").Option("missingkey=error").Parse(`
 (
-  sum(rate(istio_requests_total{ {{.filter}}destination_service_name="{{.service}}",destination_service_namespace="{{.namespace}}",response_code=~"(5..|429)" }[{{"{{.window}}"}}])) 
+  sum(rate(istio_requests_total{ {{.filter}}destination_service_name="{{.service}}",destination_service_namespace="{{.namespace}}",response_code=~"(5..|429|0)" }[{{"{{.window}}"}}]))
   /          
   (sum(rate(istio_requests_total{ {{.filter}}destination_service_name="{{.service}}",destination_service_namespace="{{.namespace}}" }[{{"{{.window}}"}}])) > 0)
 ) OR on() vector(0)
