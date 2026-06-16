@@ -22,7 +22,7 @@ const (
 )
 
 type Config struct {
-	Namespace string            `json:"namespace,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 }
 
 func NewPlugin(configData json.RawMessage, _ pluginslov1.AppUtils) (pluginslov1.Plugin, error) {

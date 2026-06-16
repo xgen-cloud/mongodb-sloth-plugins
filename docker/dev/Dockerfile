@@ -1,4 +1,4 @@
-FROM slok/sloth:latest as sloth
+FROM slok/sloth:latest AS sloth
 
 FROM golang:1.24
 
