@@ -23,14 +23,26 @@ const (
 	PluginID      = "mongodb.org/core_mod/metadata_rules/v1"
 )
 
-func NewPlugin(_ json.RawMessage, _ pluginslov1.AppUtils) (pluginslov1.Plugin, error) {
-	return plugin{}, nil
+type Config struct {
+	GroupByLabels []string `json:"groupByLabels,omitempty"`
 }
 
-type plugin struct{}
+func NewPlugin(configData json.RawMessage, _ pluginslov1.AppUtils) (pluginslov1.Plugin, error) {
+	config := Config{}
+	err := json.Unmarshal(configData, &config)
+	if err != nil {
+		return nil, fmt.Errorf("invalid config: %w", err)
+	}
 
-func (plugin) ProcessSLO(ctx context.Context, request *pluginslov1.Request, result *pluginslov1.Result) error {
-	metadataRules, err := generateMetadataRecordingRules(ctx, request.Info, request.SLO, request.MWMBAlertGroup)
+	return plugin{config: config}, nil
+}
+
+type plugin struct {
+	config Config
+}
+
+func (p plugin) ProcessSLO(ctx context.Context, request *pluginslov1.Request, result *pluginslov1.Result) error {
+	metadataRules, err := p.generateMetadataRecordingRules(ctx, request.Info, request.SLO, request.MWMBAlertGroup)
 	if err != nil {
 		return err
 	}
@@ -38,7 +50,7 @@ func (plugin) ProcessSLO(ctx context.Context, request *pluginslov1.Request, resu
 	return nil
 }
 
-func generateMetadataRecordingRules(ctx context.Context, info model.Info, slo model.PromSLO, alerts model.MWMBAlertGroup) ([]rulefmt.Rule, error) {
+func (p plugin) generateMetadataRecordingRules(ctx context.Context, info model.Info, slo model.PromSLO, alerts model.MWMBAlertGroup) ([]rulefmt.Rule, error) {
 	labels := utilsdata.MergeLabels(conventions.GetSLOIDPromLabels(slo), slo.Labels)
 
 	// Metatada Recordings.
@@ -55,7 +67,15 @@ func generateMetadataRecordingRules(ctx context.Context, info model.Info, slo mo
 	sloObjectiveRatio := slo.Objective / 100
 
 	sloFilter := promutils.LabelsToPromFilter(labels)
-	sloGroup := labelsToPromGroup(labels)
+
+	// allow us to group by labels we don't filter on (eg. exported region differs from metric region)
+	groupLabels := make(map[string]string, len(p.config.GroupByLabels))
+	for _, label := range p.config.GroupByLabels {
+		groupLabels[label] = ""
+
+	}
+	groupLabels = utilsdata.MergeLabels(groupLabels, labels)
+	sloGroup := labelsToPromGroup(groupLabels)
 
 	var currentBurnRateExpr bytes.Buffer
 	err := burnRateRecordingExprTpl.Execute(&currentBurnRateExpr, map[string]string{

@@ -41,7 +41,7 @@ func TestSLIPlugin(t *testing.T) {
 			options: map[string]string{"namespace": "default", "service": "test"},
 			expQuery: `
 (
-  sum(rate(istio_requests_total{ destination_service_name="test",destination_service_namespace="default",response_code=~"(5..|429)" }[{{.window}}])) 
+  sum(rate(istio_requests_total{ destination_service_name="test",destination_service_namespace="default",response_code=~"(5..|429|0)" }[{{.window}}]))
   /          
   (sum(rate(istio_requests_total{ destination_service_name="test",destination_service_namespace="default" }[{{.window}}])) > 0)
 ) OR on() vector(0)
@@ -56,7 +56,7 @@ func TestSLIPlugin(t *testing.T) {
 			},
 			expQuery: `
 (
-  sum(rate(istio_requests_total{ k1="v2",k2="v2",destination_service_name="test",destination_service_namespace="default",response_code=~"(5..|429)" }[{{.window}}])) 
+  sum(rate(istio_requests_total{ k1="v2",k2="v2",destination_service_name="test",destination_service_namespace="default",response_code=~"(5..|429|0)" }[{{.window}}]))
   /          
   (sum(rate(istio_requests_total{ k1="v2",k2="v2",destination_service_name="test",destination_service_namespace="default" }[{{.window}}])) > 0)
 ) OR on() vector(0)
@@ -71,7 +71,7 @@ func TestSLIPlugin(t *testing.T) {
 			},
 			expQuery: `
 (
-  sum(rate(istio_requests_total{ k1="v2",k2="v2",destination_service_name="test",destination_service_namespace="default",response_code=~"(5..|429)" }[{{.window}}])) 
+  sum(rate(istio_requests_total{ k1="v2",k2="v2",destination_service_name="test",destination_service_namespace="default",response_code=~"(5..|429|0)" }[{{.window}}]))
   /          
   (sum(rate(istio_requests_total{ k1="v2",k2="v2",destination_service_name="test",destination_service_namespace="default" }[{{.window}}])) > 0)
 ) OR on() vector(0)
@@ -86,7 +86,7 @@ func TestSLIPlugin(t *testing.T) {
 			},
 			expQuery: `
 (
-  sum(rate(istio_requests_total{ k1="v2",k2="v2",destination_service_name="test",destination_service_namespace="default",response_code=~"(5..|429)" }[{{.window}}])) 
+  sum(rate(istio_requests_total{ k1="v2",k2="v2",destination_service_name="test",destination_service_namespace="default",response_code=~"(5..|429|0)" }[{{.window}}]))
   /          
   (sum(rate(istio_requests_total{ k1="v2",k2="v2",destination_service_name="test",destination_service_namespace="default" }[{{.window}}])) > 0)
 ) OR on() vector(0)
