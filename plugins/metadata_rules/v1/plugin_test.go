@@ -66,95 +66,6 @@ func TestPlugin(t *testing.T) {
 		expRules     []rulefmt.Rule
 		expErr       bool
 	}{
-		"groupByLabels config should add extra labels to on() clause with empty value.": {
-			pluginConfig: json.RawMessage(`{"groupByLabels":["namespace"]}`),
-			info:         baseInfo(),
-			slo:          baseSLO(),
-			alertGroup:   baseAlertGroup(),
-			expRules: []rulefmt.Rule{
-				{
-					Record: "slo:objective:ratio",
-					Expr:   "vector(0.9990000000000001)",
-					Labels: map[string]string{
-						"kind":          "test",
-						"sloth_service": "test-svc",
-						"sloth_slo":     "test-name",
-						"sloth_id":      "test",
-					},
-				},
-				{
-					Record: "slo:error_budget:ratio",
-					Expr:   "vector(1-0.9990000000000001)",
-					Labels: map[string]string{
-						"kind":          "test",
-						"sloth_service": "test-svc",
-						"sloth_slo":     "test-name",
-						"sloth_id":      "test",
-					},
-				},
-				{
-					Record: "slo:time_period:days",
-					Expr:   "vector(30)",
-					Labels: map[string]string{
-						"kind":          "test",
-						"sloth_service": "test-svc",
-						"sloth_slo":     "test-name",
-						"sloth_id":      "test",
-					},
-				},
-				{
-					Record: "slo:current_burn_rate:ratio",
-					Expr: `slo:sli_error:ratio_rate5m{kind="test", sloth_id="test", sloth_service="test-svc", sloth_slo="test-name"}
-/ on(kind, namespace, sloth_id, sloth_service, sloth_slo) group_left
-slo:error_budget:ratio{kind="test", sloth_id="test", sloth_service="test-svc", sloth_slo="test-name"}
-`,
-					Labels: map[string]string{
-						"kind":          "test",
-						"sloth_service": "test-svc",
-						"sloth_slo":     "test-name",
-						"sloth_id":      "test",
-					},
-				},
-				{
-					Record: "slo:period_burn_rate:ratio",
-					Expr: `slo:sli_error:ratio_rate30d{kind="test", sloth_id="test", sloth_service="test-svc", sloth_slo="test-name"}
-/ on(kind, namespace, sloth_id, sloth_service, sloth_slo) group_left
-slo:error_budget:ratio{kind="test", sloth_id="test", sloth_service="test-svc", sloth_slo="test-name"}
-`,
-					Labels: map[string]string{
-						"kind":          "test",
-						"sloth_service": "test-svc",
-						"sloth_slo":     "test-name",
-						"sloth_id":      "test",
-					},
-				},
-				{
-					Record: "slo:period_error_budget_remaining:ratio",
-					Expr:   `1 - slo:period_burn_rate:ratio{kind="test", sloth_id="test", sloth_service="test-svc", sloth_slo="test-name"}`,
-					Labels: map[string]string{
-						"kind":          "test",
-						"sloth_service": "test-svc",
-						"sloth_slo":     "test-name",
-						"sloth_id":      "test",
-					},
-				},
-				{
-					Record: "sloth_slo_info",
-					Expr:   `vector(1)`,
-					Labels: map[string]string{
-						"kind":            "test",
-						"sloth_service":   "test-svc",
-						"sloth_slo":       "test-name",
-						"sloth_id":        "test",
-						"sloth_version":   "test-ver",
-						"sloth_mode":      "test",
-						"sloth_spec":      "test/v1",
-						"sloth_objective": "99.9",
-					},
-				},
-			},
-		},
-
 		"Having and SLO an its mwmb alerts should create the metadata recording rules.": {
 			info:       baseInfo(),
 			slo:        baseSLO(),
@@ -238,6 +149,99 @@ slo:error_budget:ratio{kind="test", sloth_id="test", sloth_service="test-svc", s
 						"sloth_mode":      "test",
 						"sloth_spec":      "test/v1",
 						"sloth_objective": "99.9",
+					},
+				},
+			},
+		},
+
+		"groupByLabels config should add extra labels to on() clause with empty value.": {
+			pluginConfig: json.RawMessage(`{"groupByLabels":["namespace"]}`),
+			info:         baseInfo(),
+			slo:          baseSLO(),
+			alertGroup:   baseAlertGroup(),
+			expRules: []rulefmt.Rule{
+				{
+					Record: "slo:current_burn_rate:ratio",
+					Expr: `slo:sli_error:ratio_rate5m{kind="test", sloth_id="test", sloth_service="test-svc", sloth_slo="test-name"}
+/ on(kind, namespace, sloth_id, sloth_service, sloth_slo) group_left
+slo:error_budget:ratio{kind="test", sloth_id="test", sloth_service="test-svc", sloth_slo="test-name"}
+`,
+					Labels: map[string]string{
+						"kind":          "test",
+						"sloth_service": "test-svc",
+						"sloth_slo":     "test-name",
+						"sloth_id":      "test",
+					},
+				},
+				{
+					Record: "slo:period_burn_rate:ratio",
+					Expr: `slo:sli_error:ratio_rate30d{kind="test", sloth_id="test", sloth_service="test-svc", sloth_slo="test-name"}
+/ on(kind, namespace, sloth_id, sloth_service, sloth_slo) group_left
+slo:error_budget:ratio{kind="test", sloth_id="test", sloth_service="test-svc", sloth_slo="test-name"}
+`,
+					Labels: map[string]string{
+						"kind":          "test",
+						"sloth_service": "test-svc",
+						"sloth_slo":     "test-name",
+						"sloth_id":      "test",
+					},
+				},
+				{
+					Record: "slo:period_error_budget_remaining:ratio",
+					Expr:   `1 - slo:period_burn_rate:ratio{kind="test", sloth_id="test", sloth_service="test-svc", sloth_slo="test-name"}`,
+					Labels: map[string]string{
+						"kind":          "test",
+						"sloth_service": "test-svc",
+						"sloth_slo":     "test-name",
+						"sloth_id":      "test",
+					},
+				},
+				{
+					Record: "sloth_slo_info",
+					Expr: `vector(1) * group(slo:current_burn_rate:ratio{kind="test", sloth_id="test", sloth_service="test-svc", sloth_slo="test-name"})
+by (namespace)`,
+					Labels: map[string]string{
+						"kind":            "test",
+						"sloth_service":   "test-svc",
+						"sloth_slo":       "test-name",
+						"sloth_id":        "test",
+						"sloth_version":   "test-ver",
+						"sloth_mode":      "test",
+						"sloth_spec":      "test/v1",
+						"sloth_objective": "99.9",
+					},
+				},
+				{
+					Record: "slo:objective:ratio",
+					Expr: `vector(0.9990000000000001) * group(sloth_slo_info{kind="test", sloth_id="test", sloth_service="test-svc", sloth_slo="test-name"})
+by (namespace)`,
+					Labels: map[string]string{
+						"kind":          "test",
+						"sloth_service": "test-svc",
+						"sloth_slo":     "test-name",
+						"sloth_id":      "test",
+					},
+				},
+				{
+					Record: "slo:error_budget:ratio",
+					Expr: `vector(1-0.9990000000000001) * group(sloth_slo_info{kind="test", sloth_id="test", sloth_service="test-svc", sloth_slo="test-name"})
+by (namespace)`,
+					Labels: map[string]string{
+						"kind":          "test",
+						"sloth_service": "test-svc",
+						"sloth_slo":     "test-name",
+						"sloth_id":      "test",
+					},
+				},
+				{
+					Record: "slo:time_period:days",
+					Expr: `vector(30) * group(sloth_slo_info{kind="test", sloth_id="test", sloth_service="test-svc", sloth_slo="test-name"})
+by (namespace)`,
+					Labels: map[string]string{
+						"kind":          "test",
+						"sloth_service": "test-svc",
+						"sloth_slo":     "test-name",
+						"sloth_id":      "test",
 					},
 				},
 			},
