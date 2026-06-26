@@ -20,7 +20,7 @@ jobs:
         with:
           go-version-file: go.mod
       - run: ./scripts/check/unit-test.sh
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_UPLOAD_TOKEN }}
           file: ./.test_coverage.txt
