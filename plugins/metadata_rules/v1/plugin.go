@@ -55,13 +55,13 @@ func (p plugin) generateMetadataRecordingRules(ctx context.Context, info model.I
 
 	// Metatada Recordings.
 	const (
-		metricSLOCurrentBurnRateRatio            = "slo:current_burn_rate:ratio"
-		metricSLOPeriodBurnRateRatio             = "slo:period_burn_rate:ratio"
-		metricSLOPeriodErrorBudgetRemainingRatio = "slo:period_error_budget_remaining:ratio"
 		metricSLOInfo                            = "sloth_slo_info"
 		metricSLOObjectiveRatio                  = "slo:objective:ratio"
 		metricSLOErrorBudgetRatio                = "slo:error_budget:ratio"
 		metricSLOTimePeriodDays                  = "slo:time_period:days"
+		metricSLOCurrentBurnRateRatio            = "slo:current_burn_rate:ratio"
+		metricSLOPeriodBurnRateRatio             = "slo:period_burn_rate:ratio"
+		metricSLOPeriodErrorBudgetRemainingRatio = "slo:period_error_budget_remaining:ratio"
 	)
 
 	sloObjectiveRatio := slo.Objective / 100
@@ -99,7 +99,7 @@ func (p plugin) generateMetadataRecordingRules(ctx context.Context, info model.I
 		return nil, fmt.Errorf("could not render period burn rate prometheus metadata recording rule expression: %w", err)
 	}
 
-	burnRateGroupLeft := ""
+	sliGroupLeft := ""
 	infoGroupLeft := ""
 
 	if len(groupLabels) > 0 {
@@ -108,19 +108,19 @@ func (p plugin) generateMetadataRecordingRules(ctx context.Context, info model.I
 		// We must derive the group labels from the prior burn rate rule and group left to the vectors below
 		var currentBurnRateLabels bytes.Buffer
 		err = labelGroupRecordingExprTpl.Execute(&currentBurnRateLabels, map[string]string{
-			"BurnRateMetric": metricSLOCurrentBurnRateRatio,
-			"MetricFilter":   sloFilter,
-			"SLOGroup":       sloMinimalGroup,
+			"SLIMetric":    conventions.GetSLIErrorMetric(alerts.PageQuick.ShortWindow),
+			"MetricFilter": sloFilter,
+			"SLOGroup":     sloMinimalGroup,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("could not render group labels from current burn rate for prometheus metadata recording rule expression: %w", err)
 		}
-		burnRateGroupLeft = currentBurnRateLabels.String()
+		sliGroupLeft = currentBurnRateLabels.String()
 
 		// Makes slightly more sense to use the info label where we have it
 		var infoLabels bytes.Buffer
 		err = labelGroupRecordingExprTpl.Execute(&infoLabels, map[string]string{
-			"BurnRateMetric": metricSLOInfo,
+			"SLIMetric":      metricSLOInfo,
 			"MetricFilter":   sloFilter,
 			"SLOGroup":       sloMinimalGroup,
 		})
@@ -130,33 +130,12 @@ func (p plugin) generateMetadataRecordingRules(ctx context.Context, info model.I
 		infoGroupLeft = infoLabels.String()
 	}
 
-	// Order for group labels. Burn rate and info come first so we can use them later to get label values
+	// Order for group labels. Info comes first so we can use them later to get label values
 	rules := []rulefmt.Rule{
-		// Current burning speed.
-		{
-			Record: metricSLOCurrentBurnRateRatio,
-			Expr:   currentBurnRateExpr.String(),
-			Labels: labels,
-		},
-
-		// Total period burn rate.
-		{
-			Record: metricSLOPeriodBurnRateRatio,
-			Expr:   periodBurnRateExpr.String(),
-			Labels: labels,
-		},
-
-		// Total Error budget remaining period.
-		{
-			Record: metricSLOPeriodErrorBudgetRemainingRatio,
-			Expr:   fmt.Sprintf(`1 - %s%s`, metricSLOPeriodBurnRateRatio, sloFilter),
-			Labels: labels,
-		},
-
 		// Info.
 		{
 			Record: metricSLOInfo,
-			Expr:   fmt.Sprintf(`vector(1)%s`, burnRateGroupLeft),
+			Expr:   fmt.Sprintf(`vector(1)%s`, sliGroupLeft),
 			Labels: utilsdata.MergeLabels(labels, map[string]string{
 				conventions.PromSLOVersionLabelName:   info.Version,
 				conventions.PromSLOModeLabelName:      string(info.Mode),
@@ -185,11 +164,32 @@ func (p plugin) generateMetadataRecordingRules(ctx context.Context, info model.I
 			Expr:   fmt.Sprintf(`vector(%g)%s`, slo.TimeWindow.Hours()/24, infoGroupLeft),
 			Labels: labels,
 		},
+
+		// Current burning speed.
+		{
+			Record: metricSLOCurrentBurnRateRatio,
+			Expr:   currentBurnRateExpr.String(),
+			Labels: labels,
+		},
+
+		// Total period burn rate.
+		{
+			Record: metricSLOPeriodBurnRateRatio,
+			Expr:   periodBurnRateExpr.String(),
+			Labels: labels,
+		},
+
+		// Total Error budget remaining period.
+		{
+			Record: metricSLOPeriodErrorBudgetRemainingRatio,
+			Expr:   fmt.Sprintf(`1 - %s%s`, metricSLOPeriodBurnRateRatio, sloFilter),
+			Labels: labels,
+		},
 	}
 
 	// If not grouping, reorder to the original order to avoid PrometheusRule resource churn
 	if len(groupLabels) == 0 {
-		origRules := []rulefmt.Rule{rules[4], rules[5], rules[6], rules[0], rules[1], rules[2], rules[3]}
+		origRules := []rulefmt.Rule{rules[1], rules[2], rules[3], rules[4], rules[5], rules[6], rules[0]}
 		rules = origRules
 	}
 
@@ -212,5 +212,5 @@ var burnRateRecordingExprTpl = template.Must(template.New("burnRateExpr").Option
 {{ .ErrorBudgetRatioMetric }}{{ .MetricFilter }}
 `))
 
-var labelGroupRecordingExprTpl = template.Must(template.New("labelGroupExpr").Option("missingkey=error").Parse(` * group({{ .BurnRateMetric }}{{ .MetricFilter }})
+var labelGroupRecordingExprTpl = template.Must(template.New("labelGroupExpr").Option("missingkey=error").Parse(` * group({{ .SLIMetric }}{{ .MetricFilter }})
 by ({{ .SLOGroup }})`))
