@@ -53,17 +53,6 @@ func (p plugin) ProcessSLO(ctx context.Context, request *pluginslov1.Request, re
 func (p plugin) generateMetadataRecordingRules(ctx context.Context, info model.Info, slo model.PromSLO, alerts model.MWMBAlertGroup) ([]rulefmt.Rule, error) {
 	labels := utilsdata.MergeLabels(conventions.GetSLOIDPromLabels(slo), slo.Labels)
 
-	// Metatada Recordings.
-	const (
-		metricSLOInfo                            = "sloth_slo_info"
-		metricSLOObjectiveRatio                  = "slo:objective:ratio"
-		metricSLOErrorBudgetRatio                = "slo:error_budget:ratio"
-		metricSLOTimePeriodDays                  = "slo:time_period:days"
-		metricSLOCurrentBurnRateRatio            = "slo:current_burn_rate:ratio"
-		metricSLOPeriodBurnRateRatio             = "slo:period_burn_rate:ratio"
-		metricSLOPeriodErrorBudgetRemainingRatio = "slo:period_error_budget_remaining:ratio"
-	)
-
 	sloObjectiveRatio := slo.Objective / 100
 
 	sloFilter := promutils.LabelsToPromFilter(labels)
@@ -82,7 +71,7 @@ func (p plugin) generateMetadataRecordingRules(ctx context.Context, info model.I
 		"SLIErrorMetric":         conventions.GetSLIErrorMetric(alerts.PageQuick.ShortWindow),
 		"MetricFilter":           sloFilter,
 		"SLOGroup":               sloGroup,
-		"ErrorBudgetRatioMetric": metricSLOErrorBudgetRatio,
+		"ErrorBudgetRatioMetric": conventions.PromMetaSLOErrorBudgetRatioMetric,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not render current burn rate prometheus metadata recording rule expression: %w", err)
@@ -93,7 +82,7 @@ func (p plugin) generateMetadataRecordingRules(ctx context.Context, info model.I
 		"SLIErrorMetric":         conventions.GetSLIErrorMetric(slo.TimeWindow),
 		"MetricFilter":           sloFilter,
 		"SLOGroup":               sloGroup,
-		"ErrorBudgetRatioMetric": metricSLOErrorBudgetRatio,
+		"ErrorBudgetRatioMetric": conventions.PromMetaSLOErrorBudgetRatioMetric,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not render period burn rate prometheus metadata recording rule expression: %w", err)
@@ -120,9 +109,9 @@ func (p plugin) generateMetadataRecordingRules(ctx context.Context, info model.I
 		// Makes slightly more sense to use the info label where we have it
 		var infoLabels bytes.Buffer
 		err = labelGroupRecordingExprTpl.Execute(&infoLabels, map[string]string{
-			"SLIMetric":      metricSLOInfo,
-			"MetricFilter":   sloFilter,
-			"SLOGroup":       sloMinimalGroup,
+			"SLIMetric":    conventions.PromMetaSLOInfoMetric,
+			"MetricFilter": sloFilter,
+			"SLOGroup":     sloMinimalGroup,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("could not render group labels from slo info metric for prometheus metadata recording rule expression: %w", err)
@@ -134,7 +123,7 @@ func (p plugin) generateMetadataRecordingRules(ctx context.Context, info model.I
 	rules := []rulefmt.Rule{
 		// Info.
 		{
-			Record: metricSLOInfo,
+			Record: conventions.PromMetaSLOInfoMetric,
 			Expr:   fmt.Sprintf(`vector(1)%s`, sliGroupLeft),
 			Labels: utilsdata.MergeLabels(labels, map[string]string{
 				conventions.PromSLOVersionLabelName:   info.Version,
@@ -146,43 +135,43 @@ func (p plugin) generateMetadataRecordingRules(ctx context.Context, info model.I
 
 		// SLO Objective.
 		{
-			Record: metricSLOObjectiveRatio,
+			Record: conventions.PromMetaSLOObjectiveRatioMetric,
 			Expr:   fmt.Sprintf(`vector(%g)%s`, sloObjectiveRatio, infoGroupLeft),
 			Labels: labels,
 		},
 
 		// Error budget.
 		{
-			Record: metricSLOErrorBudgetRatio,
+			Record: conventions.PromMetaSLOErrorBudgetRatioMetric,
 			Expr:   fmt.Sprintf(`vector(1-%g)%s`, sloObjectiveRatio, infoGroupLeft),
 			Labels: labels,
 		},
 
 		// Total period.
 		{
-			Record: metricSLOTimePeriodDays,
+			Record: conventions.PromMetaSLOTimePeriodDaysMetric,
 			Expr:   fmt.Sprintf(`vector(%g)%s`, slo.TimeWindow.Hours()/24, infoGroupLeft),
 			Labels: labels,
 		},
 
 		// Current burning speed.
 		{
-			Record: metricSLOCurrentBurnRateRatio,
+			Record: conventions.PromMetaSLOCurrentBurnRateRatioMetric,
 			Expr:   currentBurnRateExpr.String(),
 			Labels: labels,
 		},
 
 		// Total period burn rate.
 		{
-			Record: metricSLOPeriodBurnRateRatio,
+			Record: conventions.PromMetaSLOPeriodBurnRateRatioMetric,
 			Expr:   periodBurnRateExpr.String(),
 			Labels: labels,
 		},
 
 		// Total Error budget remaining period.
 		{
-			Record: metricSLOPeriodErrorBudgetRemainingRatio,
-			Expr:   fmt.Sprintf(`1 - %s%s`, metricSLOPeriodBurnRateRatio, sloFilter),
+			Record: conventions.PromMetaSLOPeriodErrorBudgetRemainingRatioMetric,
+			Expr:   fmt.Sprintf(`1 - %s%s`, conventions.PromMetaSLOPeriodBurnRateRatioMetric, sloFilter),
 			Labels: labels,
 		},
 	}
