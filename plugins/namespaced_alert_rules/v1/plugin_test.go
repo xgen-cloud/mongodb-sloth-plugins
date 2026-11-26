@@ -105,6 +105,7 @@ or
 `,
 					Labels: map[string]string{
 						"custom-label":   "test1",
+						"severity":       "warning",
 						"sloth_severity": "page",
 					},
 					Annotations: map[string]string{
@@ -129,6 +130,7 @@ or
 `,
 					Labels: map[string]string{
 						"custom-label":   "test2",
+						"severity":       "warning",
 						"sloth_severity": "ticket",
 					},
 					Annotations: map[string]string{
@@ -172,6 +174,7 @@ or
 `,
 					Labels: map[string]string{
 						"custom-label":   "test1",
+						"severity":       "warning",
 						"sloth_severity": "page",
 					},
 					Annotations: map[string]string{
@@ -214,6 +217,7 @@ or
 `,
 					Labels: map[string]string{
 						"custom-label":   "test2",
+						"severity":       "warning",
 						"sloth_severity": "ticket",
 					},
 					Annotations: map[string]string{
@@ -254,6 +258,27 @@ or
 			}
 		})
 	}
+}
+
+func TestPluginSeverityOverride(t *testing.T) {
+	slo := baseSLO()
+	slo.PageAlertMeta.Labels = map[string]string{"severity": "critical"}
+
+	plugin, err := pluginslov1testing.NewTestPlugin(
+		t.Context(),
+		pluginslov1testing.TestPluginConfig{PluginConfiguration: MustJSONRawMessage(t, plugin.Config{Namespace: "test-ns"})},
+	)
+	require.NoError(t, err)
+
+	res := pluginslov1.Result{}
+	err = plugin.ProcessSLO(t.Context(), &pluginslov1.Request{SLO: slo, MWMBAlertGroup: baseSLOAlertGroup()}, &res)
+	require.NoError(t, err)
+
+	severities := map[string]string{}
+	for _, r := range res.SLORules.AlertRules.Rules {
+		severities[r.Alert] = r.Labels["severity"]
+	}
+	assert.Equal(t, map[string]string{"something1": "critical", "something2": "warning"}, severities)
 }
 
 func BenchmarkPluginYaegi(b *testing.B) {

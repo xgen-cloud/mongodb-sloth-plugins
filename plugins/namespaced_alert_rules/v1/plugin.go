@@ -120,24 +120,24 @@ func (p plugin) defaultSLOAlertGenerator(slo model.PromSLO, sloAlert model.PromA
 		return nil, fmt.Errorf("could not render alert expression: %w", err)
 	}
 
-	// Add specific annotations.
+	// Set default annotations that the SLO alert annotations can override.
 	severity := quick.Severity.String() // Any(quick or slow) should work because are the same.
-	extraAnnotations := map[string]string{
+	defaultAnnotations := map[string]string{
 		"title":   fmt.Sprintf("(%s) {{$labels.%s}} {{$labels.%s}} SLO error budget burn rate is too fast.", severity, conventions.PromSLOServiceLabelName, conventions.PromSLONameLabelName),
 		"summary": fmt.Sprintf("{{$labels.%s}} {{$labels.%s}} SLO error budget burn rate is over expected.", conventions.PromSLOServiceLabelName, conventions.PromSLONameLabelName),
 	}
 
-	// Add specific labels. We don't add the labels from the rules because we will
-	// inherit on the alerts, this way we avoid warnings of overrided labels.
-	extraLabels := map[string]string{
+	// Set default labels that the SLO alert labels can override.
+	defaultLabels := map[string]string{
 		conventions.PromSLOSeverityLabelName: severity,
+		"severity":                           "warning", // Default to warning severity if not set.
 	}
 
 	return &rulefmt.Rule{
 		Alert:       sloAlert.Name,
 		Expr:        expr.String(),
-		Annotations: utilsdata.MergeLabels(extraAnnotations, sloAlert.Annotations),
-		Labels:      utilsdata.MergeLabels(extraLabels, sloAlert.Labels),
+		Annotations: utilsdata.MergeLabels(defaultAnnotations, sloAlert.Annotations),
+		Labels:      utilsdata.MergeLabels(defaultLabels, sloAlert.Labels),
 	}, nil
 }
 
